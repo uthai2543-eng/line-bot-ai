@@ -8,14 +8,16 @@ import {
   ANSWER_BUDGET_MS,
   DEFAULT_REPLY,
   GEMINI_TIMEOUT_MS,
+  HANDOFF_REPLY,
 } from "@/lib/constants";
 import { askGemini } from "@/lib/gemini";
+import { isHandoffRequest, isInHandoff, startHandoff } from "@/lib/handoff";
 import { getFaqCsv } from "@/lib/sheet";
 
 export const runtime = "nodejs";
 export const maxDuration = 10;
 
-type Outcome = "skipped" | "replied" | "reply_failed";
+type Outcome = "skipped" | "handoff_silent" | "replied" | "reply_failed";
 
 export async function POST(req: Request): Promise<Response> {
   const startedAt = Date.now();
@@ -70,6 +72,10 @@ async function handleEvent(
   const { replyToken } = event as webhook.MessageEvent;
   if (!replyToken) return "skipped";
 
+  // Staff are talking to this customer, so the bot stays out of the chat.
+  const userId = event.source?.userId;
+  if (userId && (await isInHandoff(userId))) return "handoff_silent";
+
   const answer = await buildAnswer(event as webhook.MessageEvent, deadline);
 
   try {
@@ -100,6 +106,12 @@ async function buildAnswer(
   if (message.type !== "text") return DEFAULT_REPLY;
 
   const text = (message as webhook.TextMessageContent).text;
+  if (isHandoffRequest(text)) {
+    const userId = event.source?.userId;
+    if (userId) await startHandoff(userId);
+    return HANDOFF_REPLY;
+  }
+
   const faqCsv = await getFaqCsv();
   if (faqCsv === null) return DEFAULT_REPLY;
 
