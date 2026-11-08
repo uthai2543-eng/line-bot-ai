@@ -1,7 +1,7 @@
 import { FinishReason, GoogleGenAI } from "@google/genai";
 import { DEFAULT_REPLY, GEMINI_TIMEOUT_MS } from "./constants";
 
-const MODEL = "gemini-3.5-flash";
+const MODEL = "gemini-3.5-flash-lite";
 
 const SYSTEM_PROMPT = `<role>
 คุณคือ "Admin" ผู้ดูแลตอบคำถามของ อินทราวิว คอนโดทาวน์
